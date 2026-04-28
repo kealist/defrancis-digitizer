@@ -1,32 +1,50 @@
 services:
   preprocess:
-    build: ./ocr
+    build:
+      context: .
+      dockerfile: ocr/Dockerfile
     volumes:
       - ./input:/input:ro
       - ./images:/images
     command: python /app/preprocess.py
 
   ocr:
-    build: ./ocr
+    build:
+      context: .
+      dockerfile: ocr/Dockerfile
     depends_on:
       preprocess:
         condition: service_completed_successfully
     volumes:
       - ./images:/images:ro
       - ./output:/output
-      # Cache OCR model weights so they survive `docker compose down` / rebuilds
       - paddle-models:/root/.paddlex
     command: python /app/ocr.py
-    # --- GPU (optional) ---
-    # Uncomment if you have nvidia-container-toolkit installed.
-    # You'll also want to swap paddlepaddle for paddlepaddle-gpu in the Dockerfile.
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+
+  # ---- Reconstruction stage ----
+  # These don't run with `docker compose up`. Use:
+  #   docker compose --profile reconstruct up
+  # to run them after OCR is done.
+  reconstruct_layout:
+    build:
+      context: .
+      dockerfile: ocr/Dockerfile
+    profiles: [reconstruct]
+    volumes:
+      - ./output:/output
+    command: python /app/reconstruct_layout.py /output
+
+  find_sections:
+    build:
+      context: .
+      dockerfile: ocr/Dockerfile
+    profiles: [reconstruct]
+    depends_on:
+      reconstruct_layout:
+        condition: service_completed_successfully
+    volumes:
+      - ./output:/output
+    command: python /app/find_sections.py /output
 
 volumes:
   paddle-models:

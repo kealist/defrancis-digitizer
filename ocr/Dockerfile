@@ -15,10 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-# PaddleOCR 3.x with PaddlePaddle 3.x — the current stable stack.
-# PP-OCRv5 (default model) recognizes Simplified Chinese, Traditional Chinese,
-# Chinese Pinyin, English, and Japanese with a single multilingual model, so
-# no `lang=` argument is needed.
+# PaddleOCR 3.0.1 + PaddlePaddle 3.0.0 — last known-good combo as of writing.
+# (3.1.x has a runtime API mismatch — see PaddleOCR issue #16287.)
 RUN pip install --no-cache-dir \
         paddlepaddle==3.0.0 \
         paddleocr==3.0.1 \
@@ -26,6 +24,8 @@ RUN pip install --no-cache-dir \
         Pillow==10.4.0
 
 WORKDIR /app
-COPY preprocess.py ocr.py /app/
+# Build context is the project root, so the COPY paths are relative to that.
+COPY ocr/preprocess.py ocr/ocr.py /app/
+COPY reconstruct/reconstruct_layout.py reconstruct/find_sections.py /app/
 
 CMD ["python", "ocr.py"]
