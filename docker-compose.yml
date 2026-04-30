@@ -6,6 +6,7 @@ services:
     volumes:
       - ./input:/input:ro
       - ./images:/images
+      - ./ocr/preprocess.py:/app/preprocess.py:ro
     command: python /app/preprocess.py
 
   ocr:
@@ -15,11 +16,27 @@ services:
     depends_on:
       preprocess:
         condition: service_completed_successfully
+    environment:
+      - FLAGS_use_mkldnn=0
     volumes:
       - ./images:/images:ro
       - ./output:/output
-      - paddle-models:/root/.paddlex
+      - ./models:/root/.paddlex
+      - ./ocr/ocr.py:/app/ocr.py:ro
     command: python /app/ocr.py
+
+  # ---- TTS stage ----
+  # Run after OCR: docker compose --profile tts up tts
+  tts:
+    build:
+      context: .
+      dockerfile: tts/Dockerfile
+    profiles: [tts]
+    volumes:
+      - ./output:/output:ro
+      - ./audio:/audio
+      - ./tts/tts.py:/app/tts.py:ro
+    command: python /app/tts.py /output /audio
 
   # ---- Reconstruction stage ----
   # These don't run with `docker compose up`. Use:
@@ -32,6 +49,7 @@ services:
     profiles: [reconstruct]
     volumes:
       - ./output:/output
+      - ./reconstruct/reconstruct_layout.py:/app/reconstruct_layout.py:ro
     command: python /app/reconstruct_layout.py /output
 
   find_sections:
@@ -44,7 +62,5 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./output:/output
+      - ./reconstruct/find_sections.py:/app/find_sections.py:ro
     command: python /app/find_sections.py /output
-
-volumes:
-  paddle-models:

@@ -48,6 +48,8 @@ def main() -> None:
     print("Initializing PaddleOCR (PP-OCRv5 multilingual)", flush=True)
     print("First run downloads model weights (~few hundred MB) — cached after.", flush=True)
     ocr = PaddleOCR(
+        text_detection_model_name="PP-OCRv5_mobile_det",
+        text_recognition_model_name="PP-OCRv5_mobile_rec",
         use_textline_orientation=True,
         use_doc_orientation_classify=False,
         use_doc_unwarping=False,

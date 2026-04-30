@@ -2,6 +2,8 @@
 -images/.gitkeep
 -output/.gitkeep
 
+input/*
 images/*
 output/*
+models/*
 

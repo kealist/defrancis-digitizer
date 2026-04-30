@@ -23,6 +23,11 @@ RUN pip install --no-cache-dir \
         pdf2image==1.17.0 \
         Pillow==10.4.0
 
+# ARM PaddlePaddle builds omit MKLDNN; guard the unconditional call in PaddleX 3.0.1
+RUN sed -i \
+    's/config\.set_mkldnn_cache_capacity(-1)/if hasattr(config, "set_mkldnn_cache_capacity"): config.set_mkldnn_cache_capacity(-1)/' \
+    /usr/local/lib/python3.10/site-packages/paddlex/inference/models/common/static_infer.py
+
 WORKDIR /app
 # Build context is the project root, so the COPY paths are relative to that.
 COPY ocr/preprocess.py ocr/ocr.py /app/
