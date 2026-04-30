@@ -1,3 +1,7 @@
+-input/.gitkeep
+-images/.gitkeep
+-output/.gitkeep
+
 images/*
 output/*
 
