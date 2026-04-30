@@ -5,5 +5,7 @@
 input/*
 images/*
 output/*
+lessons/*
 models/*
 
+.DS_Store
