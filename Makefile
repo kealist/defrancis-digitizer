@@ -38,6 +38,9 @@ audio: setup
 lessons: setup
 	mkdir -p lessons
 	python3 reconstruct/parse_lessons.py output lessons
+	@for d in output/*/; do \
+		python3 reconstruct/parse_intro.py "$$d" lessons/Introduction.md && break; \
+	done
 
 logs:
 	docker compose logs -f
