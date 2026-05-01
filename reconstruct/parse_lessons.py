@@ -267,7 +267,7 @@ SEC_NARRATIVE_H = re.compile(
 )
 SEC_SKIP_H = re.compile(
     r"^(?:Exercise\s+\d+[.\s]*(?:Review|Distinguishing|Substitution|Translation"
-    r"|Who'?s|What'?s|Sentences\s*\(English\)|Practice|Numbers?)|"
+    r"|Who'?s|What'?s|Sentences\s*\(English\)|Practice|Numbers?|Excerpts?|Dictation)|"
     r"Who'?s\s+Who|What'?s\s+What|Translation|"
     r"Supplementary|Summary|Index|Contents|Acknowledgment|Preface|"
     r"Suggestions|Listed\s+below|Practice\s+pronouncing)",
@@ -312,8 +312,13 @@ def parse_pages(pages: List[Path]) -> Optional[Lesson]:
     for page_path in pages:
         if done:
             break
-        text = page_path.read_text(encoding="utf-8")
+        # Prefer layout-reconstructed file when available
+        layout_path = page_path.with_name(page_path.stem + ".layout.txt")
+        src = layout_path if layout_path.exists() else page_path
+        text = src.read_text(encoding="utf-8")
         for raw in text.splitlines():
+            # Strip column-separator inserted by reconstruct_layout.py
+            raw = raw.replace(" | ", " ")
             line = raw.strip()
             if not line:
                 all_lines.append("")
@@ -341,8 +346,10 @@ def parse_pages(pages: List[Path]) -> Optional[Lesson]:
     vocab_buf: List[str] = []
     note_buf: List[str] = []
     illus_buf: List[str] = []
+    illus_seen_numbered = False  # True once we've seen the first N. entry
     dialog_lines: List[str] = []
     narrative_buf: List[str] = []
+    narrative_seen_numbered = False  # True once we've seen the first N. entry
 
     def flush_chars():
         for grp in group_entries(char_buf):
@@ -440,15 +447,33 @@ def parse_pages(pages: List[Path]) -> Optional[Lesson]:
             m = re.match(r"^(\d+)[.\s]+(.+)$", line)
             if m and chinese_ratio(m.group(2)) >= 0.4:
                 illus_buf.append(m.group(2).strip())
-            elif chinese_ratio(line) >= 0.5 and len(line) >= 4:
-                illus_buf.append(line)
+                illus_seen_numbered = True
+            elif chinese_ratio(line) >= 0.5:
+                if illus_seen_numbered and illus_buf:
+                    # After the first numbered entry, all continuation lines
+                    # belong to the current entry — mirroring the y-level rule
+                    # that content between N. and (N+1). is part of sentence N.
+                    illus_buf[-1] += line
+                elif illus_buf and illus_buf[-1][-1] not in ".。？！）":
+                    # Before first numbered entry: use terminal punct to separate
+                    illus_buf[-1] += line
+                elif len(line) >= 4:
+                    illus_buf.append(line)
 
         elif section == SECT_DIALOG:
             dialog_lines.append(line)
 
         elif section == SECT_NARRATIVE:
-            if chinese_ratio(line) >= 0.5 and len(line) >= 4:
+            m = re.match(r"^(\d+)[.\s]+(.+)$", line)
+            if m and chinese_ratio(line) >= 0.4:
                 narrative_buf.append(line)
+                narrative_seen_numbered = True
+            elif chinese_ratio(line) >= 0.5:
+                if narrative_seen_numbered and narrative_buf:
+                    # Everything between N. and (N+1). belongs to entry N
+                    narrative_buf.append(line)
+                elif len(line) >= 4:
+                    narrative_buf.append(line)
 
     # Flush any remaining buffers
     if char_buf:
@@ -594,7 +619,10 @@ def has_cjk(text: str) -> bool:
 
 
 def discover_lesson_pages(output_dir: Path) -> Dict[int, List[Path]]:
-    all_pages = sorted(output_dir.glob("page-*.txt"))
+    all_pages = sorted(
+        p for p in output_dir.glob("page-*.txt")
+        if not p.name.endswith(".layout.txt")
+    )
     mapping: Dict[int, List[Path]] = {}
     current_lesson = None
 
