@@ -38,6 +38,20 @@ services:
       - ./tts/tts.py:/app/tts.py:ro
     command: python /app/tts.py /output /audio
 
+  # ---- TTS Multi-voice stage (section-based with dialog voices) ----
+  # Run: docker compose --profile tts up tts_multivoice
+  tts_multivoice:
+    build:
+      context: .
+      dockerfile: tts/Dockerfile
+    profiles: [tts]
+    network_mode: host
+    volumes:
+      - ./lessons:/lessons:ro
+      - ./audio:/audio
+      - ./tts/tts_multivoice.py:/app/tts_multivoice.py:ro
+    command: python /app/tts_multivoice.py /lessons /audio
+
   # ---- Reconstruction stage ----
   # These don't run with `docker compose up`. Use:
   #   docker compose --profile reconstruct up
