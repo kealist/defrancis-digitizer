@@ -182,6 +182,20 @@ async def synthesize_text(text: str, voice: str, out_path: Path, delay: float = 
     await asyncio.sleep(delay)
 
 
+def split_by_chinese_punctuation(text: str) -> List[str]:
+    """Split text by Chinese sentence-ending punctuation to improve naturalness."""
+    # Split by 。！？ while keeping the punctuation
+    sentences = re.split(r'([。！？])', text)
+    result = []
+    for i in range(0, len(sentences), 2):
+        if i < len(sentences):
+            sentence = sentences[i].strip()
+            punct = sentences[i + 1] if i + 1 < len(sentences) else ""
+            if sentence:
+                result.append(sentence + punct)
+    return [s for s in result if s.strip()]
+
+
 def parse_dialog_segments(dialog_lines: List[str]) -> List[Tuple[str, str]]:
     """Parse dialog into (speaker, text) tuples preserving order."""
     segments = []
@@ -362,19 +376,85 @@ async def process_lesson(lesson_path: Path, audio_root: Path, voice_mapping: Dic
 
     # Generate illustrative MP3
     if sections.illustrative:
-        illustrative_text = "。".join(sections.illustrative)
         out_file = audio_dir / f"lesson-{lesson_num:03d}-illustrative.mp3"
         voice = "zh-TW-HsiaoChenNeural"  # Use consistent voice for illustrative
         print(f"    [tts] illustrative → {out_file.name}", flush=True)
-        await synthesize_text(illustrative_text, voice, out_file)
+
+        # Synthesize each sentence separately for better naturalness
+        all_audio = []
+        temp_files = []
+
+        for sentence in sections.illustrative:
+            # Further split by punctuation if needed
+            segments = split_by_chinese_punctuation(sentence)
+            for segment in segments:
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+                    tmp_path = Path(tmp.name)
+                    temp_files.append(tmp_path)
+
+                await synthesize_text(segment, voice, tmp_path)
+
+                try:
+                    audio = AudioSegment.from_mp3(str(tmp_path))
+                    all_audio.append(audio)
+                except Exception as e:
+                    print(f"    Error loading audio: {e}", flush=True)
+
+        # Merge with pauses
+        if all_audio:
+            combined = all_audio[0]
+            pause = AudioSegment.silent(duration=200)  # 200ms pause between sentences
+            for audio in all_audio[1:]:
+                combined += pause + audio
+            combined.export(str(out_file), format="mp3")
+
+        # Clean up temp files
+        for tmp_file in temp_files:
+            try:
+                tmp_file.unlink()
+            except:
+                pass
 
     # Generate narrative MP3
     if sections.narrative:
-        narrative_text = "。".join(sections.narrative)
         out_file = audio_dir / f"lesson-{lesson_num:03d}-narrative.mp3"
         voice = "zh-TW-HsiaoChenNeural"  # Use consistent voice for narrative
         print(f"    [tts] narrative   → {out_file.name}", flush=True)
-        await synthesize_text(narrative_text, voice, out_file)
+
+        # Synthesize each sentence separately for better naturalness
+        all_audio = []
+        temp_files = []
+
+        for paragraph in sections.narrative:
+            # Split by punctuation for natural pacing
+            segments = split_by_chinese_punctuation(paragraph)
+            for segment in segments:
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+                    tmp_path = Path(tmp.name)
+                    temp_files.append(tmp_path)
+
+                await synthesize_text(segment, voice, tmp_path)
+
+                try:
+                    audio = AudioSegment.from_mp3(str(tmp_path))
+                    all_audio.append(audio)
+                except Exception as e:
+                    print(f"    Error loading audio: {e}", flush=True)
+
+        # Merge with pauses
+        if all_audio:
+            combined = all_audio[0]
+            pause = AudioSegment.silent(duration=300)  # 300ms pause between sentences
+            for audio in all_audio[1:]:
+                combined += pause + audio
+            combined.export(str(out_file), format="mp3")
+
+        # Clean up temp files
+        for tmp_file in temp_files:
+            try:
+                tmp_file.unlink()
+            except:
+                pass
 
     # Generate combined dialogs MP3
     if sections.dialogs:
