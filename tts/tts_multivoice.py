@@ -170,7 +170,7 @@ def get_or_assign_voice(speaker: str, voice_mapping: Dict[str, str], next_voice_
     return voice
 
 
-async def synthesize_text(text: str, voice: str, out_path: Path, delay: float = 1.0):
+async def synthesize_text(text: str, voice: str, out_path: Path, delay: float = 2.0):
     """Generate MP3 for text using specified voice."""
     if not text or not text.strip():
         return
@@ -178,7 +178,7 @@ async def synthesize_text(text: str, voice: str, out_path: Path, delay: float = 
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(str(out_path))
 
-    # Rate limiting: delay between API calls
+    # Rate limiting: delay between API calls (2+ seconds recommended for sentence splitting)
     await asyncio.sleep(delay)
 
 
