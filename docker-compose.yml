@@ -78,3 +78,14 @@ services:
       - ./output:/output
       - ./reconstruct/find_sections.py:/app/find_sections.py:ro
     command: python /app/find_sections.py /output
+
+  parse_lessons:
+    build:
+      context: .
+      dockerfile: ocr/Dockerfile
+    profiles: [reconstruct]
+    volumes:
+      - ./output:/output:ro
+      - ./lessons:/lessons
+      - ./reconstruct/parse_lessons.py:/app/parse_lessons.py:ro
+    command: python /app/parse_lessons.py /output /lessons

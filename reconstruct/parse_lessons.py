@@ -601,8 +601,10 @@ def render_markdown(lesson: Lesson) -> str:
     if lesson.narrative:
         parts.append("## Narrative\n")
         for grp in group_narrative(lesson.narrative):
-            # Strip leading number prefix from first line, join continuation lines
-            first = re.sub(r"^\d+[.\s]+", "", grp[0]).strip()
+            # Keep leading number prefix for audio narration, ensure space after number
+            first = grp[0].strip()
+            # Add space after number if missing: "1.text" → "1. text"
+            first = re.sub(r"^(\d+[.．])\s*", r"\1 ", first)
             rest = "".join(line.strip() for line in grp[1:])
             paragraph = (first + rest).strip()
             if paragraph:

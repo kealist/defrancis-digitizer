@@ -37,6 +37,27 @@ Output for `input/textbook.pdf` lands in `output/textbook/`:
 
 Both stages are **idempotent** — re-running skips PDFs/pages already done. To force a redo, delete the relevant directory under `images/` or `output/`.
 
+## Lesson Parsing (Markdown Generation)
+
+Convert OCR output into structured lesson markdown files:
+
+```bash
+docker compose --profile reconstruct up parse_lessons
+```
+
+This generates `lessons/Lesson NNN.md` files with sections:
+- New Characters
+- Vocabulary
+- Illustrative Sentences
+- Dialogues (with speaker labels)
+- Narrative
+
+**To regenerate from scratch:**
+```bash
+rm -rf lessons/
+docker compose --profile reconstruct up parse_lessons
+```
+
 ## Common tweaks
 
 **Different language.** Edit `OCR_LANG` in `docker-compose.yml`:

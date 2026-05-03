@@ -437,11 +437,10 @@ async def process_lesson(lesson_path: Path, audio_root: Path, voice_mapping: Dic
         all_audio = []
         temp_files = []
 
-        for para_num, paragraph in enumerate(sections.narrative, 1):
-            # Add sequential numbering to narratives
-            numbered_paragraph = f"{para_num}. {paragraph}"
+        for paragraph in sections.narrative:
+            # Narratives already have numbers from parse_lessons.py
             # Split by punctuation for natural pacing
-            segments = split_by_chinese_punctuation(numbered_paragraph)
+            segments = split_by_chinese_punctuation(paragraph)
             for segment in segments:
                 with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                     tmp_path = Path(tmp.name)
