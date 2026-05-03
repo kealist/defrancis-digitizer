@@ -81,7 +81,7 @@ class Lesson:
 
 # ── Multi-line entry group parser ──────────────────────────────────────────────
 
-ENTRY_START = re.compile(r"^(\d+)[.\s]")  # line starting with N. or N (space)
+ENTRY_START = re.compile(r"^(\d+)[.．]")  # line starting with N. or N． (period required)
 
 
 def group_narrative(lines: List[str]) -> List[List[str]]:
