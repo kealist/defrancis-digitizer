@@ -57,6 +57,41 @@ PaddleOCR's Chinese models recognize English in the same pass — no need to com
 
 **Apple Silicon (M1/M2/M3).** The pinned `paddlepaddle` x86 wheel runs under Rosetta — it works but is slow. For native ARM, you'll need to install paddlepaddle from source or use a community ARM wheel; no clean pip path as of writing.
 
+## Audio Generation (Text-to-Speech)
+
+After OCR and lesson parsing, generate MP3 audio files organized by section with multi-voice dialogs:
+
+```bash
+docker compose --profile tts build --no-cache tts_multivoice
+docker compose --profile tts up tts_multivoice
+```
+
+This generates:
+- `lesson-NNN-illustrative.mp3` — All illustrative sentences per lesson
+- `lesson-NNN-narrative.mp3` — All narrative paragraphs per lesson (automatically numbered)
+- `lesson-NNN-dialogs.mp3` — All dialogs combined with different voices per character
+
+**Features:**
+- **Multi-voice dialogs**: Each character speaker is assigned a unique voice from an 8-voice pool (Taiwanese, Mainland Chinese, Hong Kong variants)
+- **Voice persistence**: Speaker-to-voice mapping saved in `audio/voice_mapping.json` — same character uses the same voice across all lessons
+- **Sentence splitting**: Narratives and illustrative sentences are split by punctuation for natural-sounding pacing
+- **Automatic retry**: Failed API requests retry with exponential backoff (2s → 4s → 8s)
+- **Graceful error handling**: Failed segments are skipped; processing continues
+
+**Output:**
+```
+audio/
+├── voice_mapping.json                (speaker → voice assignments)
+├── lesson-001-illustrative.mp3
+├── lesson-001-narrative.mp3
+├── lesson-001-dialogs.mp3
+├── lesson-002-illustrative.mp3
+...
+```
+
+**Configuration:**
+Edit the `delay` parameter in `tts_multivoice.py` (default: 2 seconds between API calls) to adjust rate limiting. Use 2–3 seconds to avoid 503 errors from the Bing API.
+
 ## What about the lists?
 
 The `page-NNN.json` files include bounding boxes for every detected text region. For vocabulary lists where columns matter (e.g., Chinese | Pinyin | English), you can sort the records by `box[0][1]` (y) then `box[0][0]` (x), or cluster by x-coordinate to recover the column structure. This is the part that PaddleOCR alone won't do for you — if you'd rather have the layout reconstructed automatically into Markdown tables, swap in MinerU instead.

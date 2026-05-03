@@ -170,16 +170,27 @@ def get_or_assign_voice(speaker: str, voice_mapping: Dict[str, str], next_voice_
     return voice
 
 
-async def synthesize_text(text: str, voice: str, out_path: Path, delay: float = 2.0):
-    """Generate MP3 for text using specified voice."""
+async def synthesize_text(text: str, voice: str, out_path: Path, delay: float = 2.0, max_retries: int = 3) -> bool:
+    """Generate MP3 for text using specified voice with retry logic. Returns True on success."""
     if not text or not text.strip():
-        return
+        return False
 
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(str(out_path))
+    for attempt in range(max_retries):
+        try:
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(str(out_path))
+            await asyncio.sleep(delay)
+            return True
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = delay * (2 ** attempt)  # Exponential backoff
+                print(f"    [retry] Attempt {attempt + 1} failed, waiting {wait_time}s before retry", flush=True)
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"    [skip] Failed to synthesize after {max_retries} attempts: {str(e)[:80]}", flush=True)
+                return False
 
-    # Rate limiting: delay between API calls (2+ seconds recommended for sentence splitting)
-    await asyncio.sleep(delay)
+    return False
 
 
 def split_by_chinese_punctuation(text: str) -> List[str]:
@@ -309,15 +320,15 @@ async def synthesize_combined_dialogs(
                     tmp_path = Path(tmp.name)
                     temp_files.append(tmp_path)
 
-                await synthesize_text(text, voice, tmp_path)
+                success = await synthesize_text(text, voice, tmp_path)
 
                 # Load audio segment
-                try:
-                    audio = AudioSegment.from_mp3(str(tmp_path))
-                    dialog_audio_segments.append(audio)
-                except Exception as e:
-                    print(f"    Error loading audio segment: {e}", flush=True)
-                    continue
+                if success:
+                    try:
+                        audio = AudioSegment.from_mp3(str(tmp_path))
+                        dialog_audio_segments.append(audio)
+                    except Exception as e:
+                        print(f"    Error loading audio segment: {e}", flush=True)
 
             # Merge segments within this dialog with pauses
             if dialog_audio_segments:
@@ -392,13 +403,14 @@ async def process_lesson(lesson_path: Path, audio_root: Path, voice_mapping: Dic
                     tmp_path = Path(tmp.name)
                     temp_files.append(tmp_path)
 
-                await synthesize_text(segment, voice, tmp_path)
+                success = await synthesize_text(segment, voice, tmp_path)
 
-                try:
-                    audio = AudioSegment.from_mp3(str(tmp_path))
-                    all_audio.append(audio)
-                except Exception as e:
-                    print(f"    Error loading audio: {e}", flush=True)
+                if success:
+                    try:
+                        audio = AudioSegment.from_mp3(str(tmp_path))
+                        all_audio.append(audio)
+                    except Exception as e:
+                        print(f"    Error loading audio: {e}", flush=True)
 
         # Merge with pauses
         if all_audio:
@@ -425,21 +437,24 @@ async def process_lesson(lesson_path: Path, audio_root: Path, voice_mapping: Dic
         all_audio = []
         temp_files = []
 
-        for paragraph in sections.narrative:
+        for para_num, paragraph in enumerate(sections.narrative, 1):
+            # Add sequential numbering to narratives
+            numbered_paragraph = f"{para_num}. {paragraph}"
             # Split by punctuation for natural pacing
-            segments = split_by_chinese_punctuation(paragraph)
+            segments = split_by_chinese_punctuation(numbered_paragraph)
             for segment in segments:
                 with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                     tmp_path = Path(tmp.name)
                     temp_files.append(tmp_path)
 
-                await synthesize_text(segment, voice, tmp_path)
+                success = await synthesize_text(segment, voice, tmp_path)
 
-                try:
-                    audio = AudioSegment.from_mp3(str(tmp_path))
-                    all_audio.append(audio)
-                except Exception as e:
-                    print(f"    Error loading audio: {e}", flush=True)
+                if success:
+                    try:
+                        audio = AudioSegment.from_mp3(str(tmp_path))
+                        all_audio.append(audio)
+                    except Exception as e:
+                        print(f"    Error loading audio: {e}", flush=True)
 
         # Merge with pauses
         if all_audio:
