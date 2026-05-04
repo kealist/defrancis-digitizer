@@ -25,19 +25,6 @@ services:
       - ./ocr/ocr.py:/app/ocr.py:ro
     command: python /app/ocr.py
 
-  # ---- TTS stage ----
-  # Run after OCR: docker compose --profile tts up tts
-  tts:
-    build:
-      context: .
-      dockerfile: tts/Dockerfile
-    profiles: [tts]
-    volumes:
-      - ./output:/output:ro
-      - ./audio:/audio
-      - ./tts/tts.py:/app/tts.py:ro
-    command: python /app/tts.py /output /audio
-
   # ---- TTS Multi-voice stage (section-based with dialog voices) ----
   # Run: docker compose --profile tts up tts_multivoice
   tts_multivoice:
